@@ -1,29 +1,38 @@
 {-# LANGUAGE BlockArguments #-}
 module Main where
 
-import Prelude hiding (span)
+import Prelude hiding (span, max)
 import qualified Data.List as List
 import Control.Monad
 
-import Control.Applicative hiding (many, some)
+{-@ type S n m = n : Int -> m : Int @-}
+type S = Int -> Int
 
-{-@ data S n = S (xs : Int -> { ys : Int | len xs - len ys <= n }) @-}
-data S = S (Int -> Int)
+{-@ reflect max @-}
+max :: Int -> Int -> Int
+max x y
+  | x >= y = x
+  | otherwise = y
 
-instance Semigroup S where
-  S f <> S g = S (\x -> max (f x) (g x))
+{-@ orElse :: S n m1 -> S n m2 -> S n (max m1 m2) @-}
+orElse :: S -> S -> S
+orElse f g = \x -> f x `max` g x
 
-instance Monoid S where
-  mempty = S id
+{-@ empty :: S n n @-}
+empty :: S
+empty = id
 
+{-@ andThen :: S n m -> S m k -> S n k @-}
 andThen :: S -> S -> S
-andThen (S g) (S f) = S (f . g)
+andThen g f = f . g
 
--- many :: S -> S
--- many x = some x <> mempty
--- 
--- some :: S -> S
--- some x = x `andThen` many x
+{-@ many :: S n m -> { _:S n' m' | m' <= m } @-}
+many :: S -> S
+many x = some x `orElse` empty
+
+{-@ some :: _ @-}
+some :: S -> S
+some x = x `andThen` many x
 
 -- data Parser a = MkP { runParser :: String -> [(a, String)] }
 -- 
